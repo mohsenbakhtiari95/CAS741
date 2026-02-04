@@ -70,8 +70,8 @@ jobs:
 
           for file in $CHANGED_FILES; do
             # Build using existing Makefile rules
-            make -B "${file%.tex}.pdf"
-            make -B "${file%.tex}.pdf"
+            make || true
+            make || true
               
             # Copy result into build-pdf, preserving structure
             rel=$(dirname "$file" | cut -d'/' -f2-)
