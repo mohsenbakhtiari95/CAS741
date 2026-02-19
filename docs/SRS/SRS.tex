@@ -145,8 +145,8 @@
 \begin{tabularx}{\textwidth}{p{3cm}p{2cm}X}
 \toprule {\bf Date} & {\bf Version} & {\bf Notes}\\
 \midrule
-Date 1 & 1.0 & Notes\\
-Date 2 & 1.1 & Notes\\
+2026-01-30 & 1.0 & Initial SRS draft\\
+2026-02-19 & 1.1 & Peer review revisions: quantified NFR\_Accuracy, populated traceability matrices, tabulated auxiliary constants, replaced placeholder bibliography with real references, added reflection\\
 \bottomrule
 \end{tabularx}
 
@@ -1214,7 +1214,7 @@ The system shall output results in visualization-ready formats (e.g., VTK) and a
 
 \begin{itemize}
 \item[NFR\refstepcounter{nfrnum}\thenfrnum \label{NFR_Accuracy}:]
-\textbf{Accuracy:} The numerical results shall be sufficiently accurate for research and engineering analysis, demonstrated through verification and validation tests.
+\textbf{Accuracy:} The mass balance residuals of the coupled system shall remain below $10^{-6}$ (relative) at each time step. Temperature and pressure fields shall agree with available benchmark analytical solutions or experimental reference data within 1\% relative error under equivalent boundary conditions.
 
 \item[NFR\refstepcounter{nfrnum}\thenfrnum \label{NFR_Usability}:]
 \textbf{Usability:} The system shall be usable by the intended readers (Section~\ref{sec_IntendedReader}) with clear documentation and reasonable defaults.
@@ -1243,16 +1243,50 @@ The fundamental conservation laws used in the theoretical models are unlikely to
 \section{Traceability Matrices and Graphs}
 
 \begin{table}[H]
-\caption{Traceability Matrix (Placeholder)}
+\caption{Traceability Matrix: Connections Between Models and Requirements}
 \label{Table:trace}
+\renewcommand{\arraystretch}{1.2}
 \centering
-\begin{tabular}{|c|c|}
+\begin{tabular}{|l|l|}
 \hline
-Item & Dependency \\
+\textbf{Item} & \textbf{Depends On} \\
 \hline
-TM:MassBalance & DD:Porosity \\
-IM:CoupledModel & TM:MassBalance, TM:MomentumBalance, GD:DarcyLaw \\
-R\_Calculate & IM:CoupledModel \\
+TM:MoistureMassBalance & \ref{Porosity} (DD), \ref{Sw} (DD), \ref{Sa} (DD), A\ref{A_Continuum}, A\ref{A_DarcyValidity} \\
+TM:DryAirMassBalance   & \ref{Porosity} (DD), \ref{Sa} (DD), A\ref{A_Continuum} \\
+TM:SaltTransportADR    & \ref{Porosity} (DD), \ref{Sw} (DD), \ref{Omega} (DD), GD\ref{Kinetics} \\
+TM:EnergyBalance       & \ref{Sw} (DD), \ref{Temp} (DD), \ref{Sp} (DD), A\ref{A_LTE}, GD\ref{Kinetics} \\
+TM:MechanicalEquilibrium & \ref{Pw} (DD), \ref{Stress} (DD), \ref{Biot} (DD), A\ref{A_SmallStrain} \\
+GD:DarcyLaw            & TM:MoistureMassBalance, TM:DryAirMassBalance \\
+GD:CapillaryPressure   & TM:MoistureMassBalance \\
+GD:VanGenuchten        & GD:DarcyLaw, TM:MoistureMassBalance \\
+GD:Kinetics            & TM:SaltTransportADR, TM:EnergyBalance \\
+IM:CoupledModel        & TM:MoistureMassBalance, TM:DryAirMassBalance, TM:SaltTransportADR, \\
+                       & TM:EnergyBalance, TM:MechanicalEquilibrium, GD:DarcyLaw \\
+\hline
+\rref{R_Inputs}        & -- (user provided) \\
+\rref{R_OutputInputs}  & \rref{R_Inputs} \\
+\rref{R_Calculate}     & IM:CoupledModel \\
+\rref{R_VerifyOutput}  & \rref{R_Calculate}, NFR\ref{NFR_Accuracy} \\
+\rref{R_Output}        & \rref{R_Calculate} \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{Table:A_trace} shows the connections between assumptions and theoretical models.
+
+\begin{table}[H]
+\caption{Traceability Matrix: Assumptions vs.\ Theoretical Models}
+\label{Table:A_trace}
+\renewcommand{\arraystretch}{1.2}
+\centering
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+ & TM:Moist. & TM:Air & TM:Salt & TM:Energy & TM:Mech. \\
+\hline
+A\ref{A_Continuum}   & X & X & X & X & X \\
+A\ref{A_LTE}         &   &   &   & X &   \\
+A\ref{A_SmallStrain} &   &   &   &   & X \\
+A\ref{A_DarcyValidity} & X & X & X &   &   \\
 \hline
 \end{tabular}
 \end{table}
@@ -1263,20 +1297,71 @@ Requirements will be implemented in phases: core input/output and basic flow sol
 
 \section{Values of Auxiliary Constants}
 
-Symbolic constants (e.g., tolerances, solver parameters) will be defined here for easy maintenance.
+\begin{table}[H]
+\caption{Auxiliary Constants Used in IMPS}
+\label{TblAuxConst}
+\renewcommand{\arraystretch}{1.2}
+\centering
+\begin{tabular}{l l l l}
+\toprule
+\textbf{Symbol} & \textbf{Value} & \textbf{Unit} & \textbf{Description} \\
+\midrule
+$g$ & 9.81 & m/s$^2$ & Gravitational acceleration \\
+$M_{H_2O}$ & 0.018015 & kg/mol & Molar mass of pure water \\
+$M_{Na_2SO_4 \cdot 10H_2O}$ & 0.322195 & kg/mol & Molar mass of mirabilite \\
+$M_{Na_2SO_4}$ & 0.142042 & kg/mol & Molar mass of thenardite \\
+$\Delta H_{evp}$ & $2.45 \times 10^6$ & J/kg & Enthalpy of vaporization of water at 20\,°C \\
+$\Delta H_{prec}$ & $7.8 \times 10^4$ & J/kg & Enthalpy of mirabilite crystallization \\
+$\varepsilon_{\mathrm{tol}}$ & $10^{-6}$ & -- & Nonlinear solver convergence tolerance \\
+$\Delta t_{\min}$ & $10^{-3}$ & s & Minimum allowed time step \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-% -------------------- Bibliography (safe placeholder) --------------------
-% This avoids BibTeX errors on Overleaf when you don't have the .bib file yet.
 \begin{thebibliography}{9}
-\bibitem{SmithAndLai2005} Placeholder reference: Smith and Lai (2005).
-\bibitem{SmithEtAl2007} Placeholder reference: Smith et al. (2007).
-\bibitem{SmithAndKoothoor2016} Placeholder reference: Smith and Koothoor (2016).
-\bibitem{Smith2006} Placeholder reference: Smith (2006).
-\bibitem{SmithMcCutchanAndCarette2017} Placeholder reference: Smith, McCutchan, and Carette (2017).
+
+\bibitem{SmithAndLai2005}
+Spencer Smith and Lei Lai.
+\textit{A new requirements template for scientific computing}.
+In \textit{Proceedings of the First International Workshop on Situational Requirements Engineering Processes (SREP)}, 2005.
+
+\bibitem{SmithEtAl2007}
+Spencer Smith, Lei Lai, and Ridha Khedri.
+\textit{Requirements analysis for engineering computation: A systematic approach for improving software reliability}.
+\textit{Reliable Computing}, 13(1):83--107, 2007.
+
+\bibitem{SmithAndKoothoor2016}
+Spencer Smith and Nirmitha Koothoor.
+\textit{A document-driven method for certifying scientific computing software for use in nuclear safety analysis}.
+\textit{Nuclear Engineering and Technology}, 48(2):404--418, 2016.
+
+\bibitem{vanGenuchten1980}
+M.~Th.\ van Genuchten.
+\textit{A closed-form equation for predicting the hydraulic conductivity of unsaturated soils}.
+\textit{Soil Science Society of America Journal}, 44(5):892--898, 1980.
+
+\bibitem{Biot1941}
+Maurice~A.\ Biot.
+\textit{General theory of three-dimensional consolidation}.
+\textit{Journal of Applied Physics}, 12(2):155--164, 1941.
+
+\bibitem{Darcy1856}
+Henry Darcy.
+\textit{Les fontaines publiques de la ville de Dijon}.
+Dalmont, Paris, 1856.
+
+\bibitem{PietruszczakEtAl}
+Stan Pietruszczak, G.~Pande, and D.~Lydzba.
+\textit{On the mechanics of crystallization pressure in porous materials}.
+\textit{International Journal for Numerical and Analytical Methods in Geomechanics}, 2004.
+
 \end{thebibliography}
 
 \newpage
 \section*{Appendix --- Reflection}
-This appendix is optional for your current submission. Add your reflection content here when needed.
+
+This project refines an existing MATLAB research codebase into a structured, modular software platform for coupled multi-physics simulation in porous media. The SRS has been challenging primarily because the system involves five tightly coupled physical processes (hydraulic, thermal, chemical, and mechanical, along with salt phase change), each governed by its own PDE. Choosing the right level of abstraction for the requirements --- specific enough to be verifiable, yet abstract enough to remain implementation-independent --- required careful deliberation.
+
+The peer review process highlighted several gaps that were subsequently addressed: the accuracy NFR was made quantitative and testable, the traceability matrix was populated with real dependencies derived from the theoretical model cross-references, the auxiliary constants were formally tabulated, and the bibliography was updated to include the actual references used in the theoretical derivations. These revisions improve the document's internal consistency and verifiability.
 
 \end{document}
